@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 
-const PrimeNumbers = () => {
-  const [primeNumbers, setPrimeNumbers] = useState([]);
+const Numbers = () => {
+  const [numbers, setnumbers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://20.244.56.144/numbers/primes')
       .then(response => response.json())
       .then(data => {
-        setPrimeNumbers(data);
+        setnumbers(data);
         setLoading(false);
       })
       .catch(error => {
@@ -19,14 +19,14 @@ const PrimeNumbers = () => {
 
   return (
     <div>
-      <h1>Prime Numbers</h1>
+      <h1>Numbers</h1>
       {loading ? (
         <p>Loading...</p>
-      ) : primeNumbers.length === 0 ? (
+      ) : numbers.length === 0 ? (
         <p></p>
       ) : (
         <ul>
-          {primeNumbers.map((number, index) => (
+          {numbers.map((number, index) => (
             <li key={index}>{number}</li>
           ))}
         </ul>
@@ -35,4 +35,4 @@ const PrimeNumbers = () => {
   );
 };
 
-export default PrimeNumbers;
+export default Numbers;

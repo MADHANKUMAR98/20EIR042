@@ -1,9 +1,11 @@
-import PrimeNumbers from "./node";
+import Numbers from "./node";
 
 function App() {
   return (
-    <PrimeNumbers/>
+    <Numbers/>
   );
 }
 
 export default App;
+
+
