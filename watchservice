@@ -1,0 +1,161 @@
+Here’s an updated version of the full code to safely handle duplicate file names in the target directory:
+
+If the file already exists, it renames the new file using a timestamp-based suffix to avoid overwriting.
+
+Still attempts atomic move first, and falls back to a regular move with renaming if atomic fails or if the file exists.
+
+
+
+---
+
+Updated Full Java Code: Handles Duplicate Files Gracefully
+
+import java.io.IOException;
+import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import static java.nio.file.StandardWatchEventKinds.*;
+import static java.nio.file.StandardCopyOption.*;
+import java.util.List;
+
+public class DirectoryAtomicMover {
+
+    private static final String SOURCE_DIR = "C:/monitor";
+    private static final String TARGET_DIR = "C:/target";
+
+    public static void main(String[] args) {
+        try {
+            Path sourcePath = Paths.get(SOURCE_DIR);
+            Path targetPath = Paths.get(TARGET_DIR);
+
+            createDirectoryIfNotExists(sourcePath);
+            createDirectoryIfNotExists(targetPath);
+
+            WatchService watchService = FileSystems.getDefault().newWatchService();
+            sourcePath.register(watchService, ENTRY_CREATE);
+
+            System.out.println("Monitoring directory: " + sourcePath.toAbsolutePath());
+
+            while (true) {
+                WatchKey key;
+                try {
+                    key = watchService.take(); // wait for an event
+                } catch (InterruptedException ex) {
+                    System.err.println("Watcher interrupted: " + ex.getMessage());
+                    return;
+                }
+
+                List<WatchEvent<?>> events = key.pollEvents();
+
+                for (WatchEvent<?> event : events) {
+                    if (event.kind() == OVERFLOW) {
+                        System.err.println("Overflow event occurred.");
+                        continue;
+                    }
+
+                    if (event.kind() == ENTRY_CREATE) {
+                        WatchEvent<Path> ev = (WatchEvent<Path>) event;
+                        Path fileName = ev.context();
+                        Path sourceFile = sourcePath.resolve(fileName);
+                        Path targetFile = targetPath.resolve(fileName);
+
+                        System.out.println("Detected new file: " + fileName);
+
+                        try {
+                            Thread.sleep(500); // Ensure file is ready to move
+
+                            // If file already exists in target, append timestamp to filename
+                            if (Files.exists(targetFile)) {
+                                targetFile = resolveWithTimestamp(targetPath, fileName);
+                                System.out.println("File exists in target. Renamed to: " + targetFile.getFileName());
+                            }
+
+                            try {
+                                Files.move(sourceFile, targetFile, ATOMIC_MOVE);
+                                System.out.println("File moved atomically: " + targetFile.getFileName());
+                            } catch (AtomicMoveNotSupportedException amnse) {
+                                System.err.println("Atomic move not supported: " + amnse.getMessage());
+                                Files.move(sourceFile, targetFile, REPLACE_EXISTING);
+                                System.out.println("File moved with fallback: " + targetFile.getFileName());
+                            }
+
+                        } catch (IOException ioe) {
+                            System.err.println("I/O error during move: " + ioe.getMessage());
+                        } catch (InterruptedException ie) {
+                            System.err.println("Sleep interrupted: " + ie.getMessage());
+                            Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            System.err.println("Unexpected error: " + e.getMessage());
+                        }
+                    }
+                }
+
+                if (!key.reset()) {
+                    System.err.println("WatchKey no longer valid. Exiting...");
+                    break;
+                }
+            }
+
+        } catch (IOException e) {
+            System.err.println("Failed to initialize: " + e.getMessage());
+        }
+    }
+
+    private static void createDirectoryIfNotExists(Path path) {
+        try {
+            if (!Files.exists(path)) {
+                Files.createDirectories(path);
+                System.out.println("Created directory: " + path.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to create directory: " + path + " - " + e.getMessage());
+        }
+    }
+
+    private static Path resolveWithTimestamp(Path dir, Path originalName) {
+        String fileName = originalName.getFileName().toString();
+        String baseName;
+        String extension;
+
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < fileName.length() - 1) {
+            baseName = fileName.substring(0, dotIndex);
+            extension = fileName.substring(dotIndex);
+        } else {
+            baseName = fileName;
+            extension = "";
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String newFileName = baseName + "_" + timestamp + extension;
+        return dir.resolve(newFileName);
+    }
+}
+
+
+---
+
+What’s New in This Code
+
+Feature	Description
+
+Duplicate Handling	Renames incoming file if a file with the same name exists in the destination.
+Timestamp Suffix	Adds a suffix like _20250519_145300 to the filename.
+Atomic Move First	Still attempts atomic move first.
+Fallback Move	Falls back to REPLACE_EXISTING if atomic is not supported.
+
+
+
+---
+
+Would you like to:
+
+Add logging with SLF4J or Log4j?
+
+Monitor multiple types of events (modify, delete)?
+
+Move only specific file types?
+
+
+Let me know how you'd like to extend this.
+
